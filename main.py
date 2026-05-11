@@ -418,11 +418,11 @@ def process_single_chapter(driver, chapter_index, force=False):
 
                 current_frame = video_frames[processed]
 
-                # 在进入 iframe 前检测任务点是否已完成
-                if module_already_completed(driver, current_frame):
-                    print(f"    [跳过] 视频 {processed+1}/{total_videos} 任务点已标记完成，无需播放。")
-                    processed += 1
-                    continue
+                # 外层任务点状态在部分课程中会误识别到已完成标记。
+                # 视频必须进入 iframe 后再用 video 元素的真实进度二次确认，避免未观看视频被跳过。
+                outer_module_completed = module_already_completed(driver, current_frame)
+                if outer_module_completed:
+                    print(f"    [提示] 视频 {processed+1}/{total_videos} 外层任务点疑似已完成，进入 iframe 二次确认。")
 
                 driver.switch_to.frame(current_frame)
 
@@ -439,6 +439,8 @@ def process_single_chapter(driver, chapter_index, force=False):
                     print(f"    [跳过] 视频 {processed+1}/{total_videos} 已播放完毕（当前: {pre_current:.1f}s / 总时长: {pre_duration:.1f}s，{reason}）。")
                     processed += 1
                     continue
+                if outer_module_completed:
+                    print(f"    [修正] 外层任务点状态不可信，视频未播放完毕（当前: {pre_current:.1f}s / 总时长: {pre_duration:.1f}s），继续播放。")
 
                 start_btn = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "vjs-big-play-button")))
                 driver.execute_script("arguments[0].click();", start_btn)
